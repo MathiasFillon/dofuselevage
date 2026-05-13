@@ -593,32 +593,48 @@ export default function App() {
             </div>
 
             <div className="space-y-6">
-              <div className="flex gap-4 border-b border-natural-border">
-                <button 
-                  className={`pb-2 text-sm font-bold uppercase tracking-widest ${modalTab === 'genealogy' ? 'text-natural-moss border-b-2 border-natural-moss' : 'text-natural-muted'}`}
-                  onClick={() => setModalTab('genealogy')}
-                >
-                  Généalogie
-                </button>
-                <button 
-                  className={`pb-2 text-sm font-bold uppercase tracking-widest ${modalTab === 'requirements' ? 'text-natural-moss border-b-2 border-natural-moss' : 'text-natural-muted'}`}
-                  onClick={() => setModalTab('requirements')}
-                >
-                  Besoins Totaux
-                </button>
-              </div>
+              {selectedDD.generation > 1 ? (
+                <>
+                  <div className="flex gap-4 border-b border-natural-border">
+                    <button 
+                      className={`pb-2 text-sm font-bold uppercase tracking-widest ${modalTab === 'genealogy' ? 'text-natural-moss border-b-2 border-natural-moss' : 'text-natural-muted'}`}
+                      onClick={() => setModalTab('genealogy')}
+                    >
+                      Généalogie
+                    </button>
+                    <button 
+                      className={`pb-2 text-sm font-bold uppercase tracking-widest ${modalTab === 'requirements' ? 'text-natural-moss border-b-2 border-natural-moss' : 'text-natural-muted'}`}
+                      onClick={() => setModalTab('requirements')}
+                    >
+                      Besoins Totaux
+                    </button>
+                  </div>
 
-              {modalTab === 'genealogy' ? (
-                <div className="bg-natural-paper rounded-2xl p-4 overflow-hidden">
-                  <RecursiveBreedingStep ddId={selectedDD.id} mounts={currentMounts} isRoot />
-                </div>
+                  {modalTab === 'genealogy' ? (
+                    <div className="bg-natural-paper rounded-2xl p-4 overflow-hidden">
+                      <RecursiveBreedingStep ddId={selectedDD.id} mounts={currentMounts} isRoot />
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="bg-natural-paper rounded-2xl p-6">
+                        <p className="text-sm text-natural-muted mb-4 italic font-serif leading-relaxed">
+                          Estimation des montures sauvages et bicolores nécessaires pour obtenir 1x {selectedDD.name}.
+                        </p>
+                        <RequirementsList ddId={selectedDD.id} mounts={currentMounts} />
+                      </div>
+                    </div>
+                  )}
+                </>
               ) : (
-                <div className="space-y-4">
-                  <div className="bg-natural-paper rounded-2xl p-6">
-                    <p className="text-sm text-natural-muted mb-4 italic font-serif leading-relaxed">
-                      Estimation des montures sauvages et bicolores nécessaires pour obtenir 1x {selectedDD.name}.
+                <div className="bg-natural-paper rounded-2xl p-8 text-center space-y-4">
+                  <div className="w-16 h-16 bg-natural-moss/10 text-natural-moss rounded-full flex items-center justify-center mx-auto">
+                    <Trophy size={32} />
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-bold uppercase tracking-tight">Monture de Base</h4>
+                    <p className="text-natural-muted font-serif italic max-w-sm mx-auto">
+                      Cette monture est de première génération. Elle peut être capturée à l'état sauvage ou achetée, elle n'a donc pas de recette de croisement.
                     </p>
-                    <RequirementsList ddId={selectedDD.id} mounts={currentMounts} />
                   </div>
                 </div>
               )}
@@ -673,7 +689,7 @@ function RecursiveBreedingStep({ ddId, mounts, isRoot = false }: { ddId: string,
   if (!dd) return null;
 
   const recipes = dd.recipes || [];
-  const hasParents = recipes.length > 0;
+  const hasParents = recipes.length > 0 && dd.generation > 1;
 
   return (
     <div className={`flex flex-col ${!isRoot ? 'ml-4 border-l-2 border-natural-border pl-4 my-2' : ''}`}>
@@ -692,8 +708,8 @@ function RecursiveBreedingStep({ ddId, mounts, isRoot = false }: { ddId: string,
           <span className={`font-bold text-sm ${isRoot ? 'text-lg' : ''}`}>{dd.name}</span>
           <span className="text-[10px] text-natural-muted font-bold uppercase tracking-widest">Gén {dd.generation}</span>
         </div>
-        {!hasParents && dd.generation === 1 && (
-           <span className="ml-auto text-[10px] bg-natural-moss/10 text-natural-moss px-2 py-0.5 rounded font-bold uppercase">Sauvage</span>
+        {dd.generation === 1 && (
+           <span className="ml-auto text-[10px] bg-natural-moss/10 text-natural-moss px-2 py-0.5 rounded font-bold uppercase">Base</span>
         )}
       </div>
 

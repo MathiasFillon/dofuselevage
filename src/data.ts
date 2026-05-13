@@ -164,12 +164,12 @@ export const MOUNTS: Record<BreedType, Mount[]> = {
     { id: 'm-ivoire', name: 'Ivoire', generation: 5, colors: ['#F5F5DC'], recipes: [{ parents: ['m-rousse', 'm-ebene-indigo'], probability: 20 }] },
     { id: 'm-amande-ivoire', name: 'Amande et Ivoire', generation: 5, colors: ['#98FB98', '#F5F5DC'], parents: ['m-amande', 'm-ivoire'], recipes: [{ parents: ['m-amande', 'm-ivoire'], probability: 100 }] },
     { id: 'm-dore', name: 'Doré', generation: 5, colors: ['#FFD700'], recipes: [], description: 'Récompense de succès.' },
-    // Gen 6 to 10 (Unity Update alignment)
-    { id: 'm-g6-placeholder', name: 'Muldo Gen 6 (Bicolore G5)', generation: 6, colors: ['#98FB98', '#F5F5DC'], description: 'Alignement Dofus Unity.' },
-    { id: 'm-g7-placeholder', name: 'Muldo Gen 7', generation: 7, colors: ['#EED9C4'], description: 'Alignement Dofus Unity.' },
-    { id: 'm-g8-placeholder', name: 'Muldo Gen 8', generation: 8, colors: ['#D2691E'], description: 'Alignement Dofus Unity.' },
-    { id: 'm-g9-placeholder', name: 'Muldo Gen 9', generation: 9, colors: ['#2F4F4F'], description: 'Alignement Dofus Unity.' },
-    { id: 'm-g10-placeholder', name: 'Muldo Gen 10', generation: 10, colors: ['#FFD700'], description: 'Objectif ultime (Unity).' },
+    // Gen 6 to 10 (Unity/3.x Expansion)
+    { id: 'm-pourpre-ivoire', name: 'Pourpre et Ivoire', generation: 6, colors: ['#800000', '#F5F5DC'], description: 'Croisement de génération supérieure offrant des résistances hybrides.', recipes: [{ parents: ['m-pourpre', 'm-ivoire'], probability: 5 }] },
+    { id: 'm-indigo-ivoire', name: 'Indigo et Ivoire', generation: 7, colors: ['#4B0082', '#F5F5DC'], description: 'Monture de prestige privilégiée pour les builds multi-éléments.', recipes: [{ parents: ['m-indigo', 'm-ivoire'], probability: 5 }] },
+    { id: 'm-ebene-ivoire', name: 'Ébène et Ivoire', generation: 8, colors: ['#2F4F4F', '#F5F5DC'], description: 'Une des combinaisons les plus stables pour le combat à haut niveau.', recipes: [{ parents: ['m-ebene', 'm-ivoire'], probability: 5 }] },
+    { id: 'm-orchidee-ivoire', name: 'Orchidée et Ivoire', generation: 9, colors: ['#DA70D6', '#F5F5DC'], description: 'Monture rare issue de croisements complexes en milieu sous-marin.', recipes: [{ parents: ['m-orchidee', 'm-ivoire'], probability: 5 }] },
+    { id: 'm-abyssal', name: 'Muldo Abyssal (G10)', generation: 10, colors: ['#000080'], description: 'L\'aboutissement de l\'élevage de Muldos, offrant les meilleurs bonus de résistance du jeu.', recipes: [{ parents: ['m-orchidee-ivoire', 'm-ebene-ivoire'], probability: 3 }] },
   ],
   volkorne: [
     // Gen 1
@@ -193,12 +193,12 @@ export const MOUNTS: Record<BreedType, Mount[]> = {
     // Gen 5
     { id: 'v-amande', name: 'Amande', generation: 5, colors: ['#98FB98'], recipes: [{ parents: ['v-prune', 'v-ebene-indigo'], probability: 10 }] },
     { id: 'v-ivoire', name: 'Ivoire', generation: 5, colors: ['#F5F5DC'], recipes: [{ parents: ['v-rousse', 'v-ebene-pourpre'], probability: 10 }] },
-    // Gen 6 to 10 (Unity)
-    { id: 'v-g6-placeholder', name: 'Volkorne Gen 6', generation: 6, colors: ['#40E0D0'], description: 'Alignement Unity.' },
-    { id: 'v-g7-placeholder', name: 'Volkorne Gen 7', generation: 7, colors: ['#50C878'], description: 'Alignement Unity.' },
-    { id: 'v-g8-placeholder', name: 'Volkorne Gen 8', generation: 8, colors: ['#8B008B'], description: 'Alignement Unity.' },
-    { id: 'v-g9-placeholder', name: 'Volkorne Gen 9', generation: 9, colors: ['#F5F5DC'], description: 'Alignement Unity.' },
-    { id: 'v-g10-placeholder', name: 'Volkorne Gen 10', generation: 10, colors: ['#FFD700'], description: 'Alignement Unity.' },
+    // Gen 6 to 10 (Unity/3.x Expansion)
+    { id: 'v-amande-ivoire', name: 'Amande et Ivoire', generation: 6, colors: ['#98FB98', '#F5F5DC'], description: 'Combine la vitalité des Volkornes avec une esquive accrue.', recipes: [{ parents: ['v-amande', 'v-ivoire'], probability: 5 }] },
+    { id: 'v-ebene-ivoire', name: 'Ébène et Ivoire', generation: 7, colors: ['#2F4F4F', '#F5F5DC'], description: 'Optimisée pour les dommages critiques et la survie.', recipes: [{ parents: ['v-ebene', 'v-ivoire'], probability: 5 }] },
+    { id: 'v-indigo-ivoire', name: 'Indigo et Ivoire', generation: 8, colors: ['#4B0082', '#F5F5DC'], description: 'Indispensable pour les combattants cherchant un bonus PA et de la polyvalence.', recipes: [{ parents: ['v-indigo', 'v-ivoire'], probability: 5 }] },
+    { id: 'v-pourpre-ivoire', name: 'Pourpre et Ivoire', generation: 9, colors: ['#800000', '#F5F5DC'], description: 'Puissance pure couplée à une robustesse exceptionnelle.', recipes: [{ parents: ['v-pourpre', 'v-ivoire'], probability: 5 }] },
+    { id: 'v-celeste', name: 'Volkorne Céleste (G10)', generation: 10, colors: ['#E1F5FE'], description: 'La monture de l\'élite, symbole de puissance et de maîtrise de l\'élevage.', recipes: [{ parents: ['v-pourpre-ivoire', 'v-indigo-ivoire'], probability: 3 }] },
   ]
 };
 
