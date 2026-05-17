@@ -1,11 +1,11 @@
 import { useState, useEffect, useMemo, useRef, ReactNode } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import * as XLSX from 'xlsx';
-import { 
-  Search, 
-  ChevronRight, 
-  Plus, 
-  BookOpen, 
+import {
+  Search,
+  ChevronRight,
+  Plus,
+  BookOpen,
   Filter,
   ArrowRight,
   ChevronLeft,
@@ -14,11 +14,15 @@ import {
   Dna,
   List,
   Trophy,
-  CheckCircle2
+  CheckCircle2,
+  Package,
+  Check,
+  X,
+  Warehouse
 } from 'lucide-react';
 import { MOUNTS, Mount, BreedType } from './data';
 
-type View = 'landing' | 'planner' | 'mounts' | 'guide' | 'contact';
+type View = 'landing' | 'planner' | 'mounts' | 'guide' | 'contact' | 'inventory';
 
 export default function App() {
   const [selectedBreed, setSelectedBreed] = useState<BreedType | null>(null);
@@ -28,6 +32,29 @@ export default function App() {
   
   // State
   const [targetDD, setTargetDD] = useState<Mount | null>(null);
+
+  // Inventory state (persisted in localStorage)
+  const [inventory, setInventory] = useState<Record<string, boolean>>(() => {
+    try {
+      const saved = localStorage.getItem('dofus-inventory');
+      return saved ? JSON.parse(saved) : {};
+    } catch { return {}; }
+  });
+  const [inventoryTarget, setInventoryTarget] = useState<Mount | null>(null);
+  const [inventorySearch, setInventorySearch] = useState('');
+  const [showInventoryPanel, setShowInventoryPanel] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem('dofus-inventory', JSON.stringify(inventory));
+  }, [inventory]);
+
+  const toggleOwned = (id: string) => {
+    setInventory(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const ownedCount = useMemo(() =>
+    Object.values(inventory).filter(Boolean).length,
+  [inventory]);
 
   // Load data when breed changes
   useEffect(() => {
@@ -130,6 +157,7 @@ export default function App() {
             <div className="flex bg-black/10 p-1 rounded-full border border-white/10">
               <NavButton active={view === 'planner'} onClick={() => setView('planner')} icon={<Dna size={18} />} label="Planification" />
               <NavButton active={view === 'mounts'} onClick={() => setView('mounts')} icon={<List size={18} />} label="Liste" />
+              <NavButton active={view === 'inventory'} onClick={() => setView('inventory')} icon={<Warehouse size={18} />} label="Inventaire" />
               <NavButton active={view === 'guide'} onClick={() => setView('guide')} icon={<BookOpen size={18} />} label="Guide" />
               <NavButton active={view === 'contact'} onClick={() => setView('contact')} icon={<Send size={18} />} label="Contact" />
             </div>
@@ -406,6 +434,216 @@ export default function App() {
               </div>
             </motion.div>
           )}
+          {view === 'inventory' && (
+            <motion.div
+              key="inventory"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="space-y-6"
+            >
+              {/* Header */}
+              <div className="dofus-card p-6 bg-white border-2 border-natural-sand/20">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                  <div>
+                    <h2 className="text-3xl font-bold uppercase tracking-tighter flex items-center gap-3">
+                      <Warehouse size={28} className="text-natural-sand" /> Inventaire & Objectif
+                    </h2>
+                    <p className="text-natural-muted font-serif italic">
+                      Indiquez ce que vous possédez, choisissez votre cible — on vous dit ce qu'il manque.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-bold text-natural-muted">
+                      <span className="text-natural-moss font-black text-lg">{ownedCount}</span> monture{ownedCount > 1 ? 's' : ''} en stock
+                    </span>
+                    <button
+                      onClick={() => setShowInventoryPanel(!showInventoryPanel)}
+                      className="flex items-center gap-2 px-4 py-2 bg-natural-moss text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-black transition-all"
+                    >
+                      <Package size={14} />
+                      {showInventoryPanel ? 'Masquer le stock' : 'Gérer le stock'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Breed selector */}
+                <div className="flex gap-3 mb-4">
+                  {(['dragodinde', 'muldo', 'volkorne'] as BreedType[]).map(b => (
+                    <button
+                      key={b}
+                      onClick={() => { setSelectedBreed(b); setInventoryTarget(null); }}
+                      className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all border ${
+                        selectedBreed === b
+                          ? 'bg-natural-sand text-white border-natural-sand'
+                          : 'bg-white text-natural-muted border-natural-border hover:border-natural-sand'
+                      }`}
+                    >
+                      {b}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Target mount selector */}
+                {selectedBreed && (
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                    <input
+                      type="text"
+                      placeholder={`Chercher une monture cible parmi les ${currentMounts.length} ${selectedBreed}s...`}
+                      value={inventorySearch}
+                      onChange={e => { setInventorySearch(e.target.value); setInventoryTarget(null); }}
+                      className="w-full pl-9 pr-4 py-3 rounded-2xl border border-natural-border focus:ring-2 focus:ring-natural-sand focus:outline-none transition-all text-sm"
+                    />
+                    {inventorySearch && !inventoryTarget && (
+                      <div className="absolute top-full left-0 right-0 bg-white border border-natural-border rounded-2xl shadow-xl z-50 max-h-60 overflow-y-auto mt-1">
+                        {currentMounts
+                          .filter(m => m.name.toLowerCase().includes(inventorySearch.toLowerCase()))
+                          .slice(0, 12)
+                          .map(m => (
+                            <button
+                              key={m.id}
+                              onClick={() => { setInventoryTarget(m); setInventorySearch(m.name); }}
+                              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-natural-paper transition-colors text-left border-b border-natural-border/30 last:border-0"
+                            >
+                              <ColorCircle colors={m.colors} border />
+                              <div>
+                                <p className="font-bold text-sm">{m.name}</p>
+                                <p className="text-[10px] text-natural-muted uppercase font-bold tracking-widest">Génération {m.generation}</p>
+                              </div>
+                              {inventory[m.id] && <Check size={14} className="ml-auto text-green-500" />}
+                            </button>
+                          ))}
+                        {currentMounts.filter(m => m.name.toLowerCase().includes(inventorySearch.toLowerCase())).length === 0 && (
+                          <p className="px-4 py-3 text-natural-muted text-sm italic">Aucune monture trouvée</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Stock management panel */}
+              {showInventoryPanel && selectedBreed && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="dofus-card p-6 bg-white border-2 border-natural-border"
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-bold uppercase tracking-tight flex items-center gap-2">
+                      <Package size={18} className="text-natural-sand" /> Mon stock — {selectedBreed}s
+                    </h3>
+                    <button
+                      onClick={() => setInventory(prev => {
+                        const next = { ...prev };
+                        currentMounts.forEach(m => delete next[m.id]);
+                        return next;
+                      })}
+                      className="text-xs text-red-400 hover:text-red-600 font-bold uppercase tracking-widest"
+                    >
+                      Tout effacer
+                    </button>
+                  </div>
+                  <div className="space-y-4">
+                    {Array.from({ length: 10 }, (_, i) => i + 1).map(gen => {
+                      const mountsInGen = currentMounts.filter(m => m.generation === gen);
+                      if (!mountsInGen.length) return null;
+                      return (
+                        <div key={gen}>
+                          <p className="text-[10px] uppercase font-black text-natural-muted tracking-widest mb-2 border-b border-natural-border/30 pb-1">
+                            Génération {gen}
+                          </p>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                            {mountsInGen.map(m => (
+                              <button
+                                key={m.id}
+                                onClick={() => toggleOwned(m.id)}
+                                className={`flex items-center gap-2 p-2 rounded-xl border-2 transition-all text-left ${
+                                  inventory[m.id]
+                                    ? 'border-green-400 bg-green-50 text-green-800'
+                                    : 'border-natural-border bg-white text-natural-muted hover:border-natural-sand'
+                                }`}
+                              >
+                                <ColorCircle colors={m.colors} />
+                                <span className="text-xs font-bold truncate flex-1">{m.name}</span>
+                                {inventory[m.id] && <Check size={12} className="text-green-500 flex-shrink-0" />}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Result: breeding tree for target */}
+              {inventoryTarget && (
+                <div className="dofus-card p-6 bg-white border-2 border-natural-sand/20">
+                  <div className="flex items-center gap-4 mb-6">
+                    <ColorCircle colors={inventoryTarget.colors} size="large" border />
+                    <div>
+                      <h3 className="text-2xl font-bold uppercase tracking-tight">{inventoryTarget.name}</h3>
+                      <p className="text-natural-muted text-xs font-bold uppercase tracking-widest">Génération {inventoryTarget.generation} — Objectif</p>
+                    </div>
+                    {inventory[inventoryTarget.id] && (
+                      <span className="ml-auto flex items-center gap-1 text-green-600 bg-green-50 border border-green-200 px-3 py-1 rounded-full text-xs font-black uppercase">
+                        <Check size={12} /> Déjà possédée
+                      </span>
+                    )}
+                  </div>
+
+                  {inventoryTarget.generation === 1 ? (
+                    <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6 text-center">
+                      <p className="text-blue-700 font-bold">Monture de génération 1 — capturable à l'état sauvage.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Breeding tree */}
+                      <div>
+                        <h4 className="text-xs font-black uppercase tracking-widest text-natural-muted mb-3">Arbre de breeding</h4>
+                        <div className="bg-natural-paper rounded-2xl p-4">
+                          <InventoryBreedingTree
+                            mountId={inventoryTarget.id}
+                            mounts={currentMounts}
+                            inventory={inventory}
+                            onToggle={toggleOwned}
+                          />
+                        </div>
+                        <div className="flex gap-4 mt-3 flex-wrap">
+                          <span className="flex items-center gap-1 text-[10px] text-natural-muted font-bold uppercase"><span className="w-3 h-3 rounded-full bg-green-400 inline-block" /> Possédée</span>
+                          <span className="flex items-center gap-1 text-[10px] text-natural-muted font-bold uppercase"><span className="w-3 h-3 rounded-full bg-red-400 inline-block" /> Manquante</span>
+                          <span className="flex items-center gap-1 text-[10px] text-natural-muted font-bold uppercase"><span className="w-3 h-3 rounded-full bg-blue-300 inline-block" /> Capturable (G1)</span>
+                        </div>
+                      </div>
+
+                      {/* Missing mounts summary */}
+                      <div>
+                        <h4 className="text-xs font-black uppercase tracking-widest text-natural-muted mb-3">Ce qu'il vous manque</h4>
+                        <MissingMountsSummary
+                          mountId={inventoryTarget.id}
+                          mounts={currentMounts}
+                          inventory={inventory}
+                          onToggle={toggleOwned}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {!inventoryTarget && !showInventoryPanel && selectedBreed && (
+                <div className="dofus-card p-12 bg-white text-center border-2 border-dashed border-natural-border">
+                  <Warehouse size={40} className="text-natural-muted mx-auto mb-4" />
+                  <p className="text-natural-muted font-serif italic text-lg">Recherchez une monture cible ci-dessus.</p>
+                  <p className="text-natural-muted text-sm mt-2">Ex : "Prune", "Émeraude", "Jade"...</p>
+                </div>
+              )}
+            </motion.div>
+          )}
+
           {view === 'contact' && (
             <motion.div 
               key="contact"
@@ -931,6 +1169,182 @@ function NavButton({ active, onClick, icon, label }: { active: boolean, onClick:
       {icon}
       <span className="hidden md:inline">{label}</span>
     </button>
+  );
+}
+
+// Nœud de l'arbre de breeding avec indicateur inventaire
+function InventoryBreedingTree({ mountId, mounts, inventory, onToggle, depth = 0 }: {
+  mountId: string;
+  mounts: Mount[];
+  inventory: Record<string, boolean>;
+  onToggle: (id: string) => void;
+  depth?: number;
+}) {
+  const [open, setOpen] = useState(depth < 2);
+  const mount = mounts.find(m => m.id === mountId);
+  if (!mount) return null;
+
+  const owned = !!inventory[mountId];
+  const isBase = mount.generation === 1;
+  const hasRecipe = !isBase && (mount.recipes?.length ?? 0) > 0;
+  const recipe = mount.recipes?.[0];
+
+  const borderColor = isBase ? 'border-blue-300 bg-blue-50' : owned ? 'border-green-400 bg-green-50' : 'border-red-300 bg-red-50';
+
+  return (
+    <div className={`${depth > 0 ? 'ml-4 border-l-2 border-natural-border/30 pl-3 mt-2' : ''}`}>
+      <div className={`flex items-center gap-2 p-2 rounded-xl border-2 ${borderColor} transition-all`}>
+        {hasRecipe && (
+          <button onClick={() => setOpen(o => !o)} className="text-natural-muted hover:text-black flex-shrink-0">
+            <ChevronRight size={14} className={`transition-transform ${open ? 'rotate-90' : ''}`} />
+          </button>
+        )}
+        {!hasRecipe && <span className="w-[14px]" />}
+        <ColorCircle colors={mount.colors} />
+        <div className="flex-1 min-w-0">
+          <p className={`text-xs font-bold truncate ${owned ? 'text-green-800' : isBase ? 'text-blue-700' : 'text-red-800'}`}>{mount.name}</p>
+          <p className="text-[10px] text-natural-muted uppercase font-bold tracking-wider">G{mount.generation}</p>
+        </div>
+        <button
+          onClick={() => onToggle(mountId)}
+          title={owned ? 'Retirer de l\'inventaire' : 'Marquer comme possédée'}
+          className={`flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
+            owned ? 'border-green-500 bg-green-500 text-white' : 'border-natural-border hover:border-natural-sand'
+          }`}
+        >
+          {owned && <Check size={10} />}
+        </button>
+      </div>
+
+      <AnimatePresence>
+        {open && hasRecipe && recipe && !owned && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden"
+          >
+            <InventoryBreedingTree mountId={recipe.parents[0]} mounts={mounts} inventory={inventory} onToggle={onToggle} depth={depth + 1} />
+            <InventoryBreedingTree mountId={recipe.parents[1]} mounts={mounts} inventory={inventory} onToggle={onToggle} depth={depth + 1} />
+          </motion.div>
+        )}
+        {owned && hasRecipe && (
+          <div className="ml-4 mt-1 text-[10px] text-green-600 font-bold italic pl-2">
+            ✓ Vous possédez cette monture — pas besoin de remonter
+          </div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// Résumé des montures manquantes
+function MissingMountsSummary({ mountId, mounts, inventory, onToggle }: {
+  mountId: string;
+  mounts: Mount[];
+  inventory: Record<string, boolean>;
+  onToggle: (id: string) => void;
+}) {
+  const missing = useMemo(() => {
+    const result: Map<string, Mount> = new Map();
+
+    function traverse(id: string) {
+      const mount = mounts.find(m => m.id === id);
+      if (!mount) return;
+      if (inventory[id]) return; // possédée, on s'arrête
+      if (mount.generation === 1) return; // capturable, pas "manquante"
+
+      result.set(id, mount);
+      const recipe = mount.recipes?.[0];
+      if (recipe) {
+        traverse(recipe.parents[0]);
+        traverse(recipe.parents[1]);
+      }
+    }
+
+    traverse(mountId);
+    return Array.from(result.values()).sort((a, b) => a.generation - b.generation);
+  }, [mountId, mounts, inventory]);
+
+  const needToCapture = useMemo(() => {
+    const result: Map<string, Mount> = new Map();
+
+    function traverse(id: string) {
+      const mount = mounts.find(m => m.id === id);
+      if (!mount) return;
+      if (inventory[id]) return;
+      if (mount.generation === 1) { result.set(id, mount); return; }
+      const recipe = mount.recipes?.[0];
+      if (recipe) { traverse(recipe.parents[0]); traverse(recipe.parents[1]); }
+    }
+
+    traverse(mountId);
+    return Array.from(result.values());
+  }, [mountId, mounts, inventory]);
+
+  if (missing.length === 0 && needToCapture.length === 0) {
+    return (
+      <div className="bg-green-50 border border-green-200 rounded-2xl p-6 text-center">
+        <Check size={32} className="text-green-500 mx-auto mb-2" />
+        <p className="text-green-700 font-bold">Vous avez tout ce qu'il faut !</p>
+      </div>
+    );
+  }
+
+  const byGen: Record<number, Mount[]> = {};
+  missing.forEach(m => {
+    if (!byGen[m.generation]) byGen[m.generation] = [];
+    byGen[m.generation].push(m);
+  });
+
+  return (
+    <div className="space-y-4">
+      {missing.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
+          <p className="text-[10px] uppercase font-black text-red-600 tracking-widest mb-3">
+            🚫 Montures à élever ({missing.length})
+          </p>
+          <div className="space-y-3">
+            {Object.entries(byGen).sort(([a], [b]) => Number(a) - Number(b)).map(([gen, mts]) => (
+              <div key={gen}>
+                <p className="text-[10px] font-black text-natural-muted uppercase tracking-widest mb-1">Génération {gen}</p>
+                <div className="space-y-1">
+                  {mts.map(m => (
+                    <div key={m.id} className="flex items-center gap-2 bg-white/70 p-2 rounded-xl border border-red-100">
+                      <ColorCircle colors={m.colors} />
+                      <span className="text-xs font-bold flex-1">{m.name}</span>
+                      <button
+                        onClick={() => onToggle(m.id)}
+                        className="text-[10px] text-natural-sand hover:text-natural-moss font-bold uppercase tracking-widest"
+                      >
+                        J'ai
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {needToCapture.length > 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4">
+          <p className="text-[10px] uppercase font-black text-blue-600 tracking-widest mb-3">
+            🎯 Montures à capturer ({needToCapture.length})
+          </p>
+          <div className="space-y-1">
+            {needToCapture.map(m => (
+              <div key={m.id} className="flex items-center gap-2 bg-white/70 p-2 rounded-xl border border-blue-100">
+                <ColorCircle colors={m.colors} />
+                <span className="text-xs font-bold flex-1">{m.name}</span>
+                <span className="text-[10px] text-blue-500 font-bold uppercase">Sauvage</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
