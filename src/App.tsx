@@ -33,10 +33,10 @@ export default function App() {
   // State
   const [targetDD, setTargetDD] = useState<Mount | null>(null);
 
-  // Inventory state (persisted in localStorage)
-  const [inventory, setInventory] = useState<Record<string, boolean>>(() => {
+  // Inventory state: { mountId: { m: number, f: number } }
+  const [inventory, setInventory] = useState<Record<string, { m: number; f: number }>>(() => {
     try {
-      const saved = localStorage.getItem('dofus-inventory');
+      const saved = localStorage.getItem('dofus-inventory-v2');
       return saved ? JSON.parse(saved) : {};
     } catch { return {}; }
   });
@@ -45,15 +45,28 @@ export default function App() {
   const [showInventoryPanel, setShowInventoryPanel] = useState(false);
 
   useEffect(() => {
-    localStorage.setItem('dofus-inventory', JSON.stringify(inventory));
+    localStorage.setItem('dofus-inventory-v2', JSON.stringify(inventory));
   }, [inventory]);
 
-  const toggleOwned = (id: string) => {
-    setInventory(prev => ({ ...prev, [id]: !prev[id] }));
+  const updateStock = (id: string, sex: 'm' | 'f', delta: number) => {
+    setInventory(prev => {
+      const current = prev[id] || { m: 0, f: 0 };
+      const newVal = Math.max(0, current[sex] + delta);
+      const updated = { ...current, [sex]: newVal };
+      if (updated.m === 0 && updated.f === 0) {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      }
+      return { ...prev, [id]: updated };
+    });
   };
 
+  const getStock = (id: string) => inventory[id] || { m: 0, f: 0 };
+  const hasAny = (id: string) => { const s = getStock(id); return s.m + s.f > 0; };
+
   const ownedCount = useMemo(() =>
-    Object.values(inventory).filter(Boolean).length,
+    Object.keys(inventory).length,
   [inventory]);
 
   // Load data when breed changes
@@ -455,7 +468,7 @@ export default function App() {
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-sm font-bold text-natural-muted">
-                      <span className="text-natural-moss font-black text-lg">{ownedCount}</span> monture{ownedCount > 1 ? 's' : ''} en stock
+                      <span className="text-natural-moss font-black text-lg">{ownedCount}</span> espèce{ownedCount > 1 ? 's' : ''} en stock
                     </span>
                     <button
                       onClick={() => setShowInventoryPanel(!showInventoryPanel)}
@@ -511,7 +524,7 @@ export default function App() {
                                 <p className="font-bold text-sm">{m.name}</p>
                                 <p className="text-[10px] text-natural-muted uppercase font-bold tracking-widest">Génération {m.generation}</p>
                               </div>
-                              {inventory[m.id] && <Check size={14} className="ml-auto text-green-500" />}
+                              {hasAny(m.id) && <Check size={14} className="ml-auto text-green-500" />}
                             </button>
                           ))}
                         {currentMounts.filter(m => m.name.toLowerCase().includes(inventorySearch.toLowerCase())).length === 0 && (
@@ -555,22 +568,36 @@ export default function App() {
                           <p className="text-[10px] uppercase font-black text-natural-muted tracking-widest mb-2 border-b border-natural-border/30 pb-1">
                             Génération {gen}
                           </p>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                            {mountsInGen.map(m => (
-                              <button
-                                key={m.id}
-                                onClick={() => toggleOwned(m.id)}
-                                className={`flex items-center gap-2 p-2 rounded-xl border-2 transition-all text-left ${
-                                  inventory[m.id]
-                                    ? 'border-green-400 bg-green-50 text-green-800'
-                                    : 'border-natural-border bg-white text-natural-muted hover:border-natural-sand'
-                                }`}
-                              >
-                                <ColorCircle colors={m.colors} />
-                                <span className="text-xs font-bold truncate flex-1">{m.name}</span>
-                                {inventory[m.id] && <Check size={12} className="text-green-500 flex-shrink-0" />}
-                              </button>
-                            ))}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {mountsInGen.map(m => {
+                              const stock = getStock(m.id);
+                              const hasStock = stock.m + stock.f > 0;
+                              return (
+                                <div
+                                  key={m.id}
+                                  className={`flex items-center gap-2 p-2 rounded-xl border-2 transition-all ${
+                                    hasStock ? 'border-green-400 bg-green-50' : 'border-natural-border bg-white'
+                                  }`}
+                                >
+                                  <ColorCircle colors={m.colors} />
+                                  <span className="text-xs font-bold flex-1 truncate">{m.name}</span>
+                                  {/* Mâles */}
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-[10px] font-black text-blue-500">♂</span>
+                                    <button onClick={() => updateStock(m.id, 'm', -1)} className="w-5 h-5 rounded-full bg-gray-100 hover:bg-red-100 text-gray-600 text-xs font-black flex items-center justify-center">−</button>
+                                    <span className={`text-xs font-black w-4 text-center ${stock.m > 0 ? 'text-blue-600' : 'text-gray-300'}`}>{stock.m}</span>
+                                    <button onClick={() => updateStock(m.id, 'm', 1)} className="w-5 h-5 rounded-full bg-gray-100 hover:bg-blue-100 text-gray-600 text-xs font-black flex items-center justify-center">+</button>
+                                  </div>
+                                  {/* Femelles */}
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-[10px] font-black text-pink-500">♀</span>
+                                    <button onClick={() => updateStock(m.id, 'f', -1)} className="w-5 h-5 rounded-full bg-gray-100 hover:bg-red-100 text-gray-600 text-xs font-black flex items-center justify-center">−</button>
+                                    <span className={`text-xs font-black w-4 text-center ${stock.f > 0 ? 'text-pink-600' : 'text-gray-300'}`}>{stock.f}</span>
+                                    <button onClick={() => updateStock(m.id, 'f', 1)} className="w-5 h-5 rounded-full bg-gray-100 hover:bg-pink-100 text-gray-600 text-xs font-black flex items-center justify-center">+</button>
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
                       );
@@ -588,9 +615,9 @@ export default function App() {
                       <h3 className="text-2xl font-bold uppercase tracking-tight">{inventoryTarget.name}</h3>
                       <p className="text-natural-muted text-xs font-bold uppercase tracking-widest">Génération {inventoryTarget.generation} — Objectif</p>
                     </div>
-                    {inventory[inventoryTarget.id] && (
+                    {hasAny(inventoryTarget.id) && (
                       <span className="ml-auto flex items-center gap-1 text-green-600 bg-green-50 border border-green-200 px-3 py-1 rounded-full text-xs font-black uppercase">
-                        <Check size={12} /> Déjà possédée
+                        <Check size={12} /> En stock ♂{getStock(inventoryTarget.id).m} ♀{getStock(inventoryTarget.id).f}
                       </span>
                     )}
                   </div>
@@ -609,7 +636,7 @@ export default function App() {
                             mountId={inventoryTarget.id}
                             mounts={currentMounts}
                             inventory={inventory}
-                            onToggle={toggleOwned}
+                            onUpdate={updateStock}
                           />
                         </div>
                         <div className="flex gap-4 mt-3 flex-wrap">
@@ -626,7 +653,7 @@ export default function App() {
                           mountId={inventoryTarget.id}
                           mounts={currentMounts}
                           inventory={inventory}
-                          onToggle={toggleOwned}
+                          onUpdate={updateStock}
                         />
                       </div>
                     </div>
@@ -1172,28 +1199,37 @@ function NavButton({ active, onClick, icon, label }: { active: boolean, onClick:
   );
 }
 
-// Nœud de l'arbre de breeding avec indicateur inventaire
-function InventoryBreedingTree({ mountId, mounts, inventory, onToggle, depth = 0 }: {
+// Nœud de l'arbre de breeding avec compteurs ♂/♀
+function InventoryBreedingTree({ mountId, mounts, inventory, onUpdate, depth = 0 }: {
   mountId: string;
   mounts: Mount[];
-  inventory: Record<string, boolean>;
-  onToggle: (id: string) => void;
+  inventory: Record<string, { m: number; f: number }>;
+  onUpdate: (id: string, sex: 'm' | 'f', delta: number) => void;
   depth?: number;
 }) {
   const [open, setOpen] = useState(depth < 2);
   const mount = mounts.find(m => m.id === mountId);
   if (!mount) return null;
 
-  const owned = !!inventory[mountId];
+  const stock = inventory[mountId] || { m: 0, f: 0 };
+  const total = stock.m + stock.f;
   const isBase = mount.generation === 1;
   const hasRecipe = !isBase && (mount.recipes?.length ?? 0) > 0;
   const recipe = mount.recipes?.[0];
+  const hasStock = total > 0;
 
-  const borderColor = isBase ? 'border-blue-300 bg-blue-50' : owned ? 'border-green-400 bg-green-50' : 'border-red-300 bg-red-50';
+  // Couleur selon statut
+  const cardStyle = isBase
+    ? 'border-blue-300 bg-blue-50'
+    : hasStock
+      ? 'border-green-400 bg-green-50'
+      : 'border-red-300 bg-red-50';
+
+  const textColor = isBase ? 'text-blue-700' : hasStock ? 'text-green-800' : 'text-red-800';
 
   return (
-    <div className={`${depth > 0 ? 'ml-4 border-l-2 border-natural-border/30 pl-3 mt-2' : ''}`}>
-      <div className={`flex items-center gap-2 p-2 rounded-xl border-2 ${borderColor} transition-all`}>
+    <div className={`${depth > 0 ? 'ml-3 border-l-2 border-natural-border/30 pl-3 mt-2' : ''}`}>
+      <div className={`flex items-center gap-2 p-2 rounded-xl border-2 ${cardStyle} transition-all`}>
         {hasRecipe && (
           <button onClick={() => setOpen(o => !o)} className="text-natural-muted hover:text-black flex-shrink-0">
             <ChevronRight size={14} className={`transition-transform ${open ? 'rotate-90' : ''}`} />
@@ -1202,35 +1238,40 @@ function InventoryBreedingTree({ mountId, mounts, inventory, onToggle, depth = 0
         {!hasRecipe && <span className="w-[14px]" />}
         <ColorCircle colors={mount.colors} />
         <div className="flex-1 min-w-0">
-          <p className={`text-xs font-bold truncate ${owned ? 'text-green-800' : isBase ? 'text-blue-700' : 'text-red-800'}`}>{mount.name}</p>
+          <p className={`text-xs font-bold truncate ${textColor}`}>{mount.name}</p>
           <p className="text-[10px] text-natural-muted uppercase font-bold tracking-wider">G{mount.generation}</p>
         </div>
-        <button
-          onClick={() => onToggle(mountId)}
-          title={owned ? 'Retirer de l\'inventaire' : 'Marquer comme possédée'}
-          className={`flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
-            owned ? 'border-green-500 bg-green-500 text-white' : 'border-natural-border hover:border-natural-sand'
-          }`}
-        >
-          {owned && <Check size={10} />}
-        </button>
+
+        {/* Compteurs ♂ / ♀ */}
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <span className="text-[10px] font-black text-blue-500">♂</span>
+          <button onClick={() => onUpdate(mountId, 'm', -1)} className="w-4 h-4 rounded bg-white/80 hover:bg-red-100 text-gray-500 text-[10px] font-black flex items-center justify-center border border-gray-200">−</button>
+          <span className={`text-xs font-black w-4 text-center ${stock.m > 0 ? 'text-blue-600' : 'text-gray-300'}`}>{stock.m}</span>
+          <button onClick={() => onUpdate(mountId, 'm', 1)} className="w-4 h-4 rounded bg-white/80 hover:bg-blue-100 text-gray-500 text-[10px] font-black flex items-center justify-center border border-gray-200">+</button>
+        </div>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <span className="text-[10px] font-black text-pink-500">♀</span>
+          <button onClick={() => onUpdate(mountId, 'f', -1)} className="w-4 h-4 rounded bg-white/80 hover:bg-red-100 text-gray-500 text-[10px] font-black flex items-center justify-center border border-gray-200">−</button>
+          <span className={`text-xs font-black w-4 text-center ${stock.f > 0 ? 'text-pink-600' : 'text-gray-300'}`}>{stock.f}</span>
+          <button onClick={() => onUpdate(mountId, 'f', 1)} className="w-4 h-4 rounded bg-white/80 hover:bg-pink-100 text-gray-500 text-[10px] font-black flex items-center justify-center border border-gray-200">+</button>
+        </div>
       </div>
 
       <AnimatePresence>
-        {open && hasRecipe && recipe && !owned && (
+        {open && hasRecipe && recipe && !hasStock && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden"
           >
-            <InventoryBreedingTree mountId={recipe.parents[0]} mounts={mounts} inventory={inventory} onToggle={onToggle} depth={depth + 1} />
-            <InventoryBreedingTree mountId={recipe.parents[1]} mounts={mounts} inventory={inventory} onToggle={onToggle} depth={depth + 1} />
+            <InventoryBreedingTree mountId={recipe.parents[0]} mounts={mounts} inventory={inventory} onUpdate={onUpdate} depth={depth + 1} />
+            <InventoryBreedingTree mountId={recipe.parents[1]} mounts={mounts} inventory={inventory} onUpdate={onUpdate} depth={depth + 1} />
           </motion.div>
         )}
-        {owned && hasRecipe && (
-          <div className="ml-4 mt-1 text-[10px] text-green-600 font-bold italic pl-2">
-            ✓ Vous possédez cette monture — pas besoin de remonter
+        {hasStock && hasRecipe && (
+          <div className="ml-3 mt-1 text-[10px] text-green-600 font-bold italic pl-2 border-l-2 border-green-200">
+            ✓ En stock — parents non requis
           </div>
         )}
       </AnimatePresence>
@@ -1238,89 +1279,118 @@ function InventoryBreedingTree({ mountId, mounts, inventory, onToggle, depth = 0
   );
 }
 
-// Résumé des montures manquantes
-function MissingMountsSummary({ mountId, mounts, inventory, onToggle }: {
+// Résumé des montures manquantes avec détail ♂/♀
+function MissingMountsSummary({ mountId, mounts, inventory, onUpdate }: {
   mountId: string;
   mounts: Mount[];
-  inventory: Record<string, boolean>;
-  onToggle: (id: string) => void;
+  inventory: Record<string, { m: number; f: number }>;
+  onUpdate: (id: string, sex: 'm' | 'f', delta: number) => void;
 }) {
-  const missing = useMemo(() => {
-    const result: Map<string, Mount> = new Map();
+  // Calcule les besoins exacts en ♂ et ♀ pour chaque monture
+  const needs = useMemo(() => {
+    // Pour chaque croisement (parentA x parentB), on a besoin de :
+    // - 1 ♂ parentA + 1 ♀ parentB  OU  1 ♀ parentA + 1 ♂ parentB
+    // On choisit la combinaison qui minimise ce qui manque.
+    // Ici on calcule la liste des besoins sous la forme { id, needM, needF }
 
-    function traverse(id: string) {
+    const required: Map<string, { mount: Mount; needM: number; needF: number; isBase: boolean }> = new Map();
+
+    function traverse(id: string, asParentSex: 'm' | 'f' | null) {
       const mount = mounts.find(m => m.id === id);
       if (!mount) return;
-      if (inventory[id]) return; // possédée, on s'arrête
-      if (mount.generation === 1) return; // capturable, pas "manquante"
 
-      result.set(id, mount);
+      const stock = inventory[id] || { m: 0, f: 0 };
+      const hasStock = stock.m + stock.f > 0;
+
+      // Si on a du stock de la bonne couleur, on s'arrête
+      if (hasStock) return;
+
+      const isBase = mount.generation === 1;
+
+      // Ajouter le besoin
+      const entry = required.get(id) || { mount, needM: 0, needF: 0, isBase };
+      if (asParentSex === 'm') entry.needM = Math.max(entry.needM, 1);
+      else if (asParentSex === 'f') entry.needF = Math.max(entry.needF, 1);
+      else { entry.needM = Math.max(entry.needM, 1); entry.needF = Math.max(entry.needF, 1); }
+      required.set(id, entry);
+
+      if (isBase) return;
+
       const recipe = mount.recipes?.[0];
-      if (recipe) {
-        traverse(recipe.parents[0]);
-        traverse(recipe.parents[1]);
-      }
+      if (!recipe) return;
+
+      // Le parent[0] sera mâle, parent[1] sera femelle (convention)
+      traverse(recipe.parents[0], 'm');
+      traverse(recipe.parents[1], 'f');
     }
 
-    traverse(mountId);
-    return Array.from(result.values()).sort((a, b) => a.generation - b.generation);
+    traverse(mountId, null);
+    return Array.from(required.values()).sort((a, b) => a.mount.generation - b.mount.generation);
   }, [mountId, mounts, inventory]);
 
-  const needToCapture = useMemo(() => {
-    const result: Map<string, Mount> = new Map();
+  const toBreed = needs.filter(n => !n.isBase);
+  const toCapture = needs.filter(n => n.isBase);
 
-    function traverse(id: string) {
-      const mount = mounts.find(m => m.id === id);
-      if (!mount) return;
-      if (inventory[id]) return;
-      if (mount.generation === 1) { result.set(id, mount); return; }
-      const recipe = mount.recipes?.[0];
-      if (recipe) { traverse(recipe.parents[0]); traverse(recipe.parents[1]); }
-    }
-
-    traverse(mountId);
-    return Array.from(result.values());
-  }, [mountId, mounts, inventory]);
-
-  if (missing.length === 0 && needToCapture.length === 0) {
+  if (needs.length === 0) {
     return (
       <div className="bg-green-50 border border-green-200 rounded-2xl p-6 text-center">
         <Check size={32} className="text-green-500 mx-auto mb-2" />
         <p className="text-green-700 font-bold">Vous avez tout ce qu'il faut !</p>
+        <p className="text-green-600 text-xs mt-1">Vérifiez que vous avez les bons sexes pour chaque croisement.</p>
       </div>
     );
   }
 
-  const byGen: Record<number, Mount[]> = {};
-  missing.forEach(m => {
-    if (!byGen[m.generation]) byGen[m.generation] = [];
-    byGen[m.generation].push(m);
+  const byGen: Record<number, typeof toBreed> = {};
+  toBreed.forEach(n => {
+    const g = n.mount.generation;
+    if (!byGen[g]) byGen[g] = [];
+    byGen[g].push(n);
   });
 
   return (
-    <div className="space-y-4">
-      {missing.length > 0 && (
+    <div className="space-y-4 max-h-[500px] overflow-y-auto pr-1">
+      {toBreed.length > 0 && (
         <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
           <p className="text-[10px] uppercase font-black text-red-600 tracking-widest mb-3">
-            🚫 Montures à élever ({missing.length})
+            🚫 À élever / obtenir ({toBreed.length})
           </p>
           <div className="space-y-3">
-            {Object.entries(byGen).sort(([a], [b]) => Number(a) - Number(b)).map(([gen, mts]) => (
+            {Object.entries(byGen).sort(([a], [b]) => Number(a) - Number(b)).map(([gen, items]) => (
               <div key={gen}>
-                <p className="text-[10px] font-black text-natural-muted uppercase tracking-widest mb-1">Génération {gen}</p>
+                <p className="text-[10px] font-black text-natural-muted uppercase tracking-widest mb-2">Génération {gen}</p>
                 <div className="space-y-1">
-                  {mts.map(m => (
-                    <div key={m.id} className="flex items-center gap-2 bg-white/70 p-2 rounded-xl border border-red-100">
-                      <ColorCircle colors={m.colors} />
-                      <span className="text-xs font-bold flex-1">{m.name}</span>
-                      <button
-                        onClick={() => onToggle(m.id)}
-                        className="text-[10px] text-natural-sand hover:text-natural-moss font-bold uppercase tracking-widest"
-                      >
-                        J'ai
-                      </button>
-                    </div>
-                  ))}
+                  {items.map(({ mount, needM, needF }) => {
+                    const stock = inventory[mount.id] || { m: 0, f: 0 };
+                    const missingM = Math.max(0, needM - stock.m);
+                    const missingF = Math.max(0, needF - stock.f);
+                    return (
+                      <div key={mount.id} className="bg-white/80 p-2 rounded-xl border border-red-100">
+                        <div className="flex items-center gap-2 mb-2">
+                          <ColorCircle colors={mount.colors} />
+                          <span className="text-xs font-bold flex-1">{mount.name}</span>
+                        </div>
+                        <div className="flex gap-3 flex-wrap">
+                          {/* Mâle */}
+                          <div className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-black ${missingM > 0 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                            <span className="text-blue-500">♂</span>
+                            <span>Stock: {stock.m}</span>
+                            {missingM > 0 && <span className="text-red-600">/ Besoin: {needM}</span>}
+                            {missingM === 0 && needM > 0 && <Check size={10} />}
+                            <button onClick={() => onUpdate(mount.id, 'm', 1)} className="ml-1 underline hover:no-underline">+1</button>
+                          </div>
+                          {/* Femelle */}
+                          <div className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-black ${missingF > 0 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                            <span className="text-pink-500">♀</span>
+                            <span>Stock: {stock.f}</span>
+                            {missingF > 0 && <span className="text-red-600">/ Besoin: {needF}</span>}
+                            {missingF === 0 && needF > 0 && <Check size={10} />}
+                            <button onClick={() => onUpdate(mount.id, 'f', 1)} className="ml-1 underline hover:no-underline">+1</button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             ))}
@@ -1328,19 +1398,41 @@ function MissingMountsSummary({ mountId, mounts, inventory, onToggle }: {
         </div>
       )}
 
-      {needToCapture.length > 0 && (
+      {toCapture.length > 0 && (
         <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4">
           <p className="text-[10px] uppercase font-black text-blue-600 tracking-widest mb-3">
-            🎯 Montures à capturer ({needToCapture.length})
+            🎯 À capturer sauvage ({toCapture.length})
           </p>
           <div className="space-y-1">
-            {needToCapture.map(m => (
-              <div key={m.id} className="flex items-center gap-2 bg-white/70 p-2 rounded-xl border border-blue-100">
-                <ColorCircle colors={m.colors} />
-                <span className="text-xs font-bold flex-1">{m.name}</span>
-                <span className="text-[10px] text-blue-500 font-bold uppercase">Sauvage</span>
-              </div>
-            ))}
+            {toCapture.map(({ mount, needM, needF }) => {
+              const stock = inventory[mount.id] || { m: 0, f: 0 };
+              return (
+                <div key={mount.id} className="bg-white/80 p-2 rounded-xl border border-blue-100">
+                  <div className="flex items-center gap-2 mb-2">
+                    <ColorCircle colors={mount.colors} />
+                    <span className="text-xs font-bold flex-1">{mount.name}</span>
+                  </div>
+                  <div className="flex gap-3 flex-wrap">
+                    {needM > 0 && (
+                      <div className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-black ${stock.m >= needM ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
+                        <span className="text-blue-500">♂</span>
+                        <span>{stock.m}/{needM}</span>
+                        {stock.m < needM && <button onClick={() => onUpdate(mount.id, 'm', 1)} className="ml-1 underline hover:no-underline">+1</button>}
+                        {stock.m >= needM && <Check size={10} />}
+                      </div>
+                    )}
+                    {needF > 0 && (
+                      <div className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-black ${stock.f >= needF ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
+                        <span className="text-pink-500">♀</span>
+                        <span>{stock.f}/{needF}</span>
+                        {stock.f < needF && <button onClick={() => onUpdate(mount.id, 'f', 1)} className="ml-1 underline hover:no-underline">+1</button>}
+                        {stock.f >= needF && <Check size={10} />}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
